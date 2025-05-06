@@ -5,10 +5,6 @@ import customtkinter as ctk
 from customtkinter import filedialog
 from tkinter import messagebox
 from convert_video import ffmpeg
-
-from math import ceil, floor
-import os
-from os import path
 import sys
 import subprocess
 from pathlib import Path

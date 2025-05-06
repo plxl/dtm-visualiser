@@ -173,9 +173,12 @@ cython_debug/
 # PyPI configuration file
 .pypirc
 
+# dtm visualiser
 *.mp4
 *.avi
 *.dtm
+dtm2text/*.txt
 
+!dtm2text/readme.txt
 !sample/pikmin.mp4
 !sample/pikmin.dtm

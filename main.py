@@ -92,48 +92,59 @@ def set_vid(filename: str, skip_compression: bool = False):
         err_popup(f"Video file was not found:\n\n{filename}")
         return
     
-    if not skip_compression and messagebox.askyesno(
-        "Compress Video",
-        "Do you want to compress this video to 480p30 using FFmpeg?\n\n" \
-        "NOTE: This requires you to have FFmpeg installed and added to PATH.\n" \
-        "Compressed videos are saved in the ./videos/ directory."
-    ):
-        log("Attempting to compress video...")
-        
-        # validate videos folder
-        videos = basedir / "videos"
-        videos.mkdir(exist_ok=True)
-        # get pre-determined output file name
-        output_fn = basedir / "videos" / f"{file.stem}.mp4"
-        # check if compressed file already exists, and if so, asks the user if they want to
-        # overwrite it or cancel the operation entirely
-        if output_fn.exists():
-            if not messagebox.askyesno(
-                "Overwrite Video",
-                "It looks like this video or a video with a similar filename has already been " \
-                "compressed inside ./videos/\n\n" \
-                "Continuing will overwrite the file, would you like to continue?"
-            ):
-                log("Video loading and compression cancelled by user to avoid overwriting")
-                return
-            else:
-                # attempts to remove the existing file, and cancels if it fails
-                log("Attempting to remove original file...")
-                try:
-                    output_fn.unlink()
-                    log(f"Removed existing video file: {output_fn.absolute()}")
-                except Exception as e:
-                    err_popup(f"Failed to replace existing video file:\n\n{e}")
+    if not skip_compression:
+        # ask if the user wants to compress the video usinf FFmpeg
+        result = messagebox.askyesnocancel(
+            "Compress Video",
+            "Do you want to compress this video to 480p30 using FFmpeg?\n\n" \
+            "NOTE: This requires you to have FFmpeg installed and added to PATH.\n" \
+            "Compressed videos are saved in the ./videos/ directory."
+        )
+        if result == True: # pressed Yes
+            log("Attempting to compress video...")
+            
+            # validate videos folder
+            videos = basedir / "videos"
+            videos.mkdir(exist_ok=True)
+            # get pre-determined output file name
+            output_fn = basedir / "videos" / f"{file.stem}.mp4"
+            # check if compressed file already exists, and if so, asks the user if they want to
+            # overwrite it or cancel the operation entirely
+            if output_fn.exists():
+                if not messagebox.askokcancel(
+                    "Overwrite Video",
+                    "It looks like this video or a video with a similar filename has already been " \
+                    "compressed inside ./videos/\n\n" \
+                    "Continuing will overwrite the file, would you like to continue?"
+                ):
+                    log("Video loading and compression cancelled by user to avoid overwriting")
                     return
+                else:
+                    # attempts to remove the existing file, and cancels if it fails
+                    log("Attempting to remove original file...")
+                    try:
+                        output_fn.unlink()
+                        log(f"Removed existing video file: {output_fn.absolute()}")
+                    except Exception as e:
+                        err_popup(f"Failed to replace existing video file:\n\n{e}")
+                        return
+            
+            # calls ffmpeg with pre-defined command for a small 480p30 mp4 video
+            if ffmpeg(
+                input=str(file.absolute()),
+                output=str(output_fn.absolute())
+            ):
+                file = output_fn
         
-        # calls ffmpeg with pre-defined command for a small 480p30 mp4 video
-        if ffmpeg(
-            input=str(file.absolute()),
-            output=str(output_fn.absolute())
-        ):
-            file = output_fn
-    else:
-        log("User declined video compression, continuing with existing video")
+        elif result is None: # pressed Cancel
+            log("User cancelled video load when prompted about video compression")
+            return
+        
+        else: # pressed No
+            log("User declined video compression, continuing with existing video")
+            
+    else: # skip_compression == False
+        log("Video compression automatically skipped")
     
     log(f"Loaded video at: {file.absolute()}")
     vid = str(file.absolute())

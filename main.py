@@ -8,6 +8,7 @@ from convert_video import ffmpeg
 import sys
 import subprocess
 from pathlib import Path
+from video_player import VideoPlayer
 
 basedir = Path(__file__).resolve().parent
 dtm2text = basedir / "dtm2text" / "dtm2text.py"
@@ -21,8 +22,6 @@ if not dtm2text.exists():
 
 dtm = ""
 vid = ""
-capture = None
-cap_frame = 0
 
 corner_radius = cr = 6
 padding = pd = 4
@@ -156,6 +155,13 @@ def set_vid(filename: str, skip_compression: bool = False):
     else: # skip_compression == False
         log("Video compression automatically skipped")
     
+    # load video to canvas
+    try:
+        canvas.set_video(file.absolute(), slider, 1, 1, pd)
+    except Exception as e:
+        err_popup(f"Failed to load the video to canvas using cv2:\n\n{e}")
+        return
+    
     log(f"Loaded video at: {file.absolute()}")
     vid = str(file.absolute())
     lbl_vid.configure(text=get_vid_text())
@@ -206,66 +212,55 @@ def load_video():
     else:
         log("User cancelled loading video")
 
-def play_video():
+def play_video(event = None):
     if not dtm or not vid:
         err("Both a DTM file and a video must be loaded for playback")
         return
     
-    global capture
-    global cap_frame
-    try:
-        capture = cv2.VideoCapture(vid)
-    except:
-        err_popup("Failed to capture the video from the loaded file.\n\n" \
-            "Does the file still exist?" \
-            "Try using the compression method to convert it to MP4.")
-        return
-    
-    width = capture.get(cv2.CAP_PROP_FRAME_WIDTH)
-    height = capture.get(cv2.CAP_PROP_FRAME_HEIGHT)
-    fps = capture.get(cv2.CAP_PROP_FPS)
-    frame_latency = int(1000 / 25)
-    log(f"Video captured by cv2: {width}x{height}, {fps}fps")
-    
-    # start video playback loop
-    while True:
-            ret, frame = capture.read()
-            if not ret:
-                break
-                
-            cap_frame += 1
+    # play function handles if its already playing or not
+    canvas.play_pause()
 
-            # Convert the frame to RGB format
-            frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-            img = Image.fromarray(frame)
-            img_tk = ImageTk.PhotoImage(image=img)
+def try_seek(event = None, value = 50):
+    if event.keysym == "Left" or event.keysym == "j":
+        slider.set(max(slider.get() - 50, 0))
+    elif event.keysym == "Right" or event.keysym == "l":
+        slider.set(min(slider.get() + 50, slider.cget("to")))
+    canvas.on_seek(slider.get())
 
-            # Display the image
-            canvas.create_image(0, 0, anchor="nw", image=img_tk)
-
-            app.update()
-            cv2.waitKey(frame_latency)
-
-# removes any currently loaded videos from the dtm and vid variables, as well as cv2 capture
+# removes any currently loaded videos from the dtm and vid variables, pauses video if playing
+# TODO: implement clear image function in VideoPlayer and call that here
 def unload():
     set_dtm("")
     set_vid("")
-    global capture
-    capture = None
-    global cap_frame
-    cap_frame = 0
-    
+    if canvas.playing:
+        canvas.pause()
+    slider.grid_forget()
+
+# setup a grid layout
+app.grid_columnconfigure(0, weight=0) # for the sidebar
+app.grid_columnconfigure(1, weight=1) # for canvas which is resizable
+# app.grid_columnconfigure(2, weight=0) # for canvas which is resizable
+app.grid_rowconfigure(0, weight=1) # for the top row (sidebar + canvas)
+app.grid_rowconfigure(1, weight=0) # for the video player slider
+app.grid_rowconfigure(2, weight=0) # for the statusbar
+
 # left-most column
 sidebar = ctk.CTkFrame(app)
-sidebar.pack(side="top", anchor="nw", fill="y", padx=pd, pady=pd)
+sidebar.grid(row=0, rowspan=2, column=0, padx=pd, pady=pd, sticky="ns")
+sidebar.grid_rowconfigure(0, weight=1)
+sidebar.grid_rowconfigure(1, weight=0)
+
+sidebar_upper = ctk.CTkFrame(sidebar, fg_color="transparent")
+sidebar_upper.grid(row=0, column=0, padx=0, pady=pd, sticky="nw")
+
 
 # bottom status bar for loaded labels
 statusbar = ctk.CTkFrame(app)
-statusbar.pack(side="bottom", anchor="sw", fill="y", padx=pd, pady=pd)
+statusbar.grid(row=2, column=0, columnspan=2, padx=pd, pady=pd, sticky="ew")
 
 # canvas for painting the video and elements on top
-canvas = ctk.CTkCanvas(app, width=720, height=480)
-canvas.pack(side="top", anchor="nw", padx=pd, pady=pd)
+canvas = VideoPlayer(app)
+canvas.grid(row=0, column=1, padx=pd, pady=pd, sticky="nsew")
 
 # labels
 lbl_dtm = ctk.CTkLabel(statusbar, text=get_dtm_text(), font=ctk.CTkFont(size=14))
@@ -274,15 +269,27 @@ lbl_vid = ctk.CTkLabel(statusbar, text=get_vid_text(), font=ctk.CTkFont(size=14)
 lbl_vid.grid(row=1, column=0, sticky="w", padx=pd, pady=0)
 
 # buttons
-btn_sample = ctk.CTkButton(sidebar, text="Load Sample", command=load_sample, corner_radius=cr)
-btn_sample.grid(row=2, column=0, padx=pd, pady=pd)
-btn_dtm = ctk.CTkButton(sidebar, text="Load DTM", command=load_dtm, corner_radius=cr)
-btn_dtm.grid(row=3, column=0, padx=pd, pady=pd)
-btn_video = ctk.CTkButton(sidebar, text="Load Video", command=load_video, corner_radius=cr)
-btn_video.grid(row=4, column=0, padx=pd, pady=pd)
+btn_sample = ctk.CTkButton(sidebar_upper, text="Load Sample", command=load_sample, corner_radius=cr)
+btn_sample.grid(row=0, column=0, padx=pd, pady=(0, pd))
+btn_dtm = ctk.CTkButton(sidebar_upper, text="Load DTM", command=load_dtm, corner_radius=cr)
+btn_dtm.grid(row=1, column=0, padx=pd, pady=pd)
+btn_video = ctk.CTkButton(sidebar_upper, text="Load Video", command=load_video, corner_radius=cr)
+btn_video.grid(row=2, column=0, padx=pd, pady=pd)
+btn_unload = ctk.CTkButton(sidebar_upper, text="Unload", command=unload, corner_radius=cr)
+btn_unload.grid(row=3, column=0, padx=pd, pady=pd)
+# spacer = ctk.CTkFrame(sidebar_upper, height=20, width=1)
+# spacer.grid(row=4, column=0, padx=pd, pady=pd)
 btn_play = ctk.CTkButton(sidebar, text="Play", command=play_video, corner_radius=cr)
-btn_play.grid(row=5, column=0, padx=pd, pady=pd)
-btn_unload = ctk.CTkButton(sidebar, text="Unload", command=unload, corner_radius=cr)
-btn_unload.grid(row=6, column=0, padx=pd, pady=pd)
+btn_play.grid(row=1, column=0, padx=pd, pady=pd)
+canvas.play_button = btn_play
+app.bind("<space>", play_video)
+app.bind("<k>", play_video)
+app.bind("<Left>", try_seek)
+app.bind("<j>", try_seek)
+app.bind("<Right>", try_seek)
+app.bind("<l>", try_seek)
+
+# playback slider
+slider = ctk.CTkSlider(app)
 
 app.mainloop()

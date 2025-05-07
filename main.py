@@ -21,6 +21,8 @@ if not dtm2text.exists():
 
 dtm = ""
 vid = ""
+capture = None
+cap_frame = 0
 
 corner_radius = cr = 6
 padding = pd = 4
@@ -205,12 +207,53 @@ def load_video():
         log("User cancelled loading video")
 
 def play_video():
-    pass
+    if not dtm or not vid:
+        err("Both a DTM file and a video must be loaded for playback")
+        return
     
-# removes any currently loaded videos from the dtm and vid variables
-def unload(): 
+    global capture
+    global cap_frame
+    try:
+        capture = cv2.VideoCapture(vid)
+    except:
+        err_popup("Failed to capture the video from the loaded file.\n\n" \
+            "Does the file still exist?" \
+            "Try using the compression method to convert it to MP4.")
+        return
+    
+    width = capture.get(cv2.CAP_PROP_FRAME_WIDTH)
+    height = capture.get(cv2.CAP_PROP_FRAME_HEIGHT)
+    fps = capture.get(cv2.CAP_PROP_FPS)
+    frame_latency = int(1000 / 25)
+    log(f"Video captured by cv2: {width}x{height}, {fps}fps")
+    
+    # start video playback loop
+    while True:
+            ret, frame = capture.read()
+            if not ret:
+                break
+                
+            cap_frame += 1
+
+            # Convert the frame to RGB format
+            frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+            img = Image.fromarray(frame)
+            img_tk = ImageTk.PhotoImage(image=img)
+
+            # Display the image
+            canvas.create_image(0, 0, anchor="nw", image=img_tk)
+
+            app.update()
+            cv2.waitKey(frame_latency)
+
+# removes any currently loaded videos from the dtm and vid variables, as well as cv2 capture
+def unload():
     set_dtm("")
     set_vid("")
+    global capture
+    capture = None
+    global cap_frame
+    cap_frame = 0
     
 # left-most column
 sidebar = ctk.CTkFrame(app)
@@ -219,6 +262,10 @@ sidebar.pack(side="top", anchor="nw", fill="y", padx=pd, pady=pd)
 # bottom status bar for loaded labels
 statusbar = ctk.CTkFrame(app)
 statusbar.pack(side="bottom", anchor="sw", fill="y", padx=pd, pady=pd)
+
+# canvas for painting the video and elements on top
+canvas = ctk.CTkCanvas(app, width=720, height=480)
+canvas.pack(side="top", anchor="nw", padx=pd, pady=pd)
 
 # labels
 lbl_dtm = ctk.CTkLabel(statusbar, text=get_dtm_text(), font=ctk.CTkFont(size=14))

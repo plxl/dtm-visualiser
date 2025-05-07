@@ -39,6 +39,8 @@ def get_vid_text() -> str:
     
 def set_dtm(filename: str):
     global dtm
+    
+    # if the dtm file is an empty string, then unload
     if len(filename) == 0:
         log("Unloading DTM file")
         dtm = ""
@@ -49,7 +51,8 @@ def set_dtm(filename: str):
     if not file.exists():
         err_popup(f"DTM file was not found:\n\n{file.absolute()}")
         return
-        
+    
+    # check if the output dtm file already exists and if so try to remove it
     output_dir = dtm2text.parent
     output_fn = output_dir / f"{file.name}_inputs.txt"
     if output_fn.exists() and output_fn.is_file():
@@ -72,15 +75,20 @@ def set_dtm(filename: str):
         cwd=output_dir.absolute()
     )
     
+    # if dtm2text fails there won't be an output file and thus we can't set the new dtm
     if not output_fn.exists():
         err_popup(f"Failed to convert DTM file to TXT.\nOutput not found at:\n\n{output_fn}")
         return
+    
+    log("Successful conversion of DTM to TXT")
     
     dtm = str(file.absolute())
     lbl_dtm.configure(text=get_dtm_text())
     
 def set_vid(filename: str, skip_compression: bool = False):
     global vid
+    
+    # if the video file is an empty string, then unload
     if len(filename) == 0:
         log("Unloading video file")
         vid = ""
@@ -150,19 +158,22 @@ def set_vid(filename: str, skip_compression: bool = False):
     vid = str(file.absolute())
     lbl_vid.configure(text=get_vid_text())
 
+# set custom tkinter appearance and theme
 ctk.set_appearance_mode("system")
 ctk.set_default_color_theme("themes/lavender.json")
 
+# initialise ctk window title and size
 app = ctk.CTk()
 app.title("DTM Visualiser")
 app.geometry("800x600")
 
-# Button callbacks
+# button callbacks
 def load_sample():
     set_dtm("sample/pikmin.dtm")
     set_vid("sample/pikmin.mp4", skip_compression=True)
     
 def load_dtm():
+    # file dialog for selecting only DTM files
     filename = filedialog.askopenfilename(
         filetypes=[(
             "DTM Dolphin Test Movie Files",
@@ -172,10 +183,13 @@ def load_dtm():
     if filename:
         log(f"Attempting to load DTM at: {filename}")
         set_dtm(filename)
+    
+    # filename will be blank if the user cancels
     else:
         log("User cancelled loading DTM")
     
 def load_video():
+    # file dialog for selecting specific video files
     filename = filedialog.askopenfilename(
         filetypes=[(
             "Video Files",
@@ -185,12 +199,15 @@ def load_video():
     if filename:
         log(f"Attempting to load video at: {filename}")
         set_vid(filename)
+    
+    # filename will be blank if the user cancels
     else:
         log("User cancelled loading video")
 
 def play_video():
     pass
     
+# removes any currently loaded videos from the dtm and vid variables
 def unload(): 
     set_dtm("")
     set_vid("")
@@ -199,6 +216,7 @@ def unload():
 sidebar = ctk.CTkFrame(app)
 sidebar.pack(side="top", anchor="nw", fill="y", padx=pd, pady=pd)
 
+# bottom status bar for loaded labels
 statusbar = ctk.CTkFrame(app)
 statusbar.pack(side="bottom", anchor="sw", fill="y", padx=pd, pady=pd)
 

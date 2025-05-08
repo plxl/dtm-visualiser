@@ -1,6 +1,6 @@
 import cv2
 from PIL import Image, ImageTk
-from util import log, err, err_popup
+from util import log, err, err_popup, ease_out_expo, hex_to_rgb, rgb_to_hex
 import customtkinter as ctk
 from customtkinter import filedialog
 from tkinter import messagebox, simpledialog
@@ -9,6 +9,8 @@ import sys
 import subprocess
 from pathlib import Path
 from video_player import VideoPlayer
+from math import ceil, floor, pi, sin, cos, radians, sqrt
+import time
 
 basedir = Path(__file__).resolve().parent
 dtm2text = basedir / "dtm2text" / "dtm2text.py"
@@ -21,6 +23,7 @@ if not dtm2text.exists():
     exit()
 
 dtm = ""
+dtm_inputs = []
 vid = ""
 
 corner_radius = cr = 6
@@ -82,6 +85,11 @@ def set_dtm(filename: str):
         return
     
     log("Successful conversion of DTM to TXT")
+    
+    global dtm_inputs
+    with open(output_fn, 'r') as f:
+        dtm_inputs = [line.strip() for line in f.readlines()]
+    log("Read DTM input lines")
     
     dtm = str(file.absolute())
     lbl_dtm.configure(text=get_dtm_text())
@@ -193,7 +201,7 @@ ctk.set_default_color_theme("themes/lavender.json")
 # initialise ctk window title and size
 app = ctk.CTk()
 app.title("DTM Visualiser")
-app.geometry("800x600")
+app.geometry("1100x600")
 
 # button callbacks
 def load_sample():
@@ -256,9 +264,329 @@ def unload():
         canvas.pause()
     slider.grid_forget()
 
+# global button draw objects
+drw_left_stick = None
+drw_c_stick = None
+drw_l_btn = None
+drw_r_btn = None
+
+def init_draws():
+    # sticks
+    global drw_left_stick
+    drw_left_stick = img_gc.create_oval(
+        28+10, 51+10, 28+44, 51+44,
+        fill="#cccccc",
+        outline="black",
+        width=1
+    )
+    global drw_c_stick
+    drw_c_stick = img_gc.create_oval(
+        174+14, 122+14, 174+52-14, 122+52-14,
+        fill="#ffff00",
+        outline="black",
+        width=1
+    )
+    # buttons
+    drw_start_btn = img_gc.create_oval(
+        143, 73, 143+15, 73+15,
+        fill="#333333",
+        outline="black",
+        width=1
+    )
+    drw_a_btn = img_gc.create_oval(
+        226, 60, 226+36, 60+36,
+        fill="#333333",
+        outline="black",
+        width=1
+    )
+    drw_b_btn = img_gc.create_oval(
+        200, 85, 200+23, 85+23,
+        fill="#333333",
+        outline="black",
+        width=1
+    )
+    # beans (X, Y)
+    x, y = 280, 70
+    w, h = 16, 32
+    drw_x_btn = create_bean_shape(
+        img_gc,
+        x, y, w, h,
+        rotation_deg=165,
+        fill="#333333",
+        outline="black",
+        width=1
+    )
+    x, y = 237, 44
+    w, h = 32, 16
+    drw_y_btn = create_bean_shape(
+        img_gc,
+        x, y, h, w,
+        rotation_deg=75,
+        fill="#333333",
+        outline="black",
+        width=1
+    )
+    # bumpers (L, R, Z)
+    x, y = 50, 22
+    w, h = 46, 28
+    global drw_l_btn
+    drw_l_btn = create_semi_circle(
+        img_gc,
+        x, y, w, h,
+        rotation_deg=157,
+        direction="top",
+        fill="#333333",
+        outline="black",
+        width=1
+    )
+    x, y = 246, 22
+    w, h = 46, 28
+    global drw_r_btn
+    drw_r_btn = create_semi_circle(
+        img_gc,
+        x, y, w, h,
+        rotation_deg=203,
+        direction="top",
+        fill="#333333",
+        outline="black",
+        width=1
+    )
+    x, y = 246, 22
+    w, h = 54, 12
+    drw_z_btn = create_semi_circle(
+        img_gc,
+        x, y, w, h,
+        rotation_deg=203,
+        direction="top",
+        fill="#333333",
+        outline="black",
+        width=1
+    )
+    # D-PAD arrows (UP DOWN LEFT RIGHT)
+    x, y = 99, 134
+    w = 9
+    drw_du_btn = create_triangle(
+        img_gc,
+        x, y, w,
+        rotation_deg=0,
+        fill="#cccccc"
+    )
+    x, y = 99, 162
+    drw_dd_btn = create_triangle(
+        img_gc,
+        x, y, w,
+        rotation_deg=180,
+        fill="#cccccc"
+    )
+    x, y = 85, 148
+    drw_dl_btn = create_triangle(
+        img_gc,
+        x, y, w,
+        rotation_deg=270,
+        fill="#cccccc"
+    )
+    x, y = 113, 148
+    drw_dr_btn = create_triangle(
+        img_gc,
+        x, y, w,
+        rotation_deg=90,
+        fill="#cccccc"
+    )
+    
+    button_draws.append(drw_start_btn)
+    button_draws.append(drw_a_btn)
+    button_draws.append(drw_b_btn)
+    button_draws.append(drw_x_btn)
+    button_draws.append(drw_y_btn)
+    button_draws.append(drw_z_btn)
+    # note that L and R are excluded from this list because i draw their fill
+    # based on how hard they are pressed (analog triggers)
+    button_draws.append(drw_du_btn)
+    button_draws.append(drw_dd_btn)
+    button_draws.append(drw_dl_btn)
+    button_draws.append(drw_dr_btn)
+    
+def create_bean_shape(canvas, cx, cy, cw, ch, steps=10, rotation_deg=0, **kwargs):
+    """
+    draws a 'bean' shape for X and Y buttons
+    taken from https://math.stackexchange.com/a/4642743
+    """
+    points = []
+    for i in range(steps + 1):
+        t = 2 * pi * i / steps
+        x = 3 + 2 * sin(t) + cos(2 * t)
+        y = 4 * cos(t) - sin(2 * t)
+        points.append((x, y))
+
+    # Normalize and scale to [0, cw] x [0, ch]
+    xs, ys = zip(*points)
+    min_x, max_x = min(xs), max(xs)
+    min_y, max_y = min(ys), max(ys)
+
+    scale_x = cw / (max_x - min_x)
+    scale_y = ch / (max_y - min_y)
+
+    # Angle in radians for rotation
+    angle_rad = radians(rotation_deg)
+
+    final_points = []
+    for x, y in points:
+        # Normalize
+        nx = (x - min_x) * scale_x - cw / 2
+        ny = (y - min_y) * scale_y - ch / 2
+
+        # Rotate
+        rx = nx * cos(angle_rad) - ny * sin(angle_rad)
+        ry = nx * sin(angle_rad) + ny * cos(angle_rad)
+
+        # Translate to center
+        final_points.extend((cx + rx, cy + ry))
+
+    return canvas.create_polygon(final_points, smooth=True, **kwargs)
+
+def create_semi_circle(canvas, cx, cy, cw=100, ch=50, rotation_deg=0,
+                       direction="top", steps=10, **kwargs):
+    """
+    draws a semicircle with rotation controls
+    """
+    angle_rad = radians(rotation_deg)
+    radius_x = cw / 2
+    radius_y = ch / 2
+
+    # angle range for top or bottom arc
+    if direction == "top":
+        angle_start = pi
+        angle_end = 0
+    else: # bottom
+        angle_start = 0
+        angle_end = pi
+
+    arc_points = []
+    for i in range(steps + 1):
+        theta = angle_start + (angle_end - angle_start) * i / steps
+        x = radius_x * cos(theta)
+        y = radius_y * sin(theta)
+
+        # rotate around (0,0)
+        x_rot = x * cos(angle_rad) - y * sin(angle_rad)
+        y_rot = x * sin(angle_rad) + y * cos(angle_rad)
+
+        # translate to center
+        arc_points.append((cx + x_rot, cy + y_rot))
+
+    # close the semicircle back to center
+    arc_points.append((cx, cy))
+
+    return canvas.create_polygon(arc_points, smooth=True, **kwargs)
+
+def create_triangle(canvas, cx, cy, cw=100, rotation_deg=0, **kwargs):
+    """
+    draws an equilateral triangle centered at (cx, cy) and can be rotated
+    """
+    height = (sqrt(3) / 2) * cw
+
+    # define points so the centroid is at (0, 0)
+    p1 = (0, -height * 2 / 3)  # top
+    p2 = (-cw / 2, height / 3) # bottom left
+    p3 = (cw / 2, height / 3)  # bottom right
+
+    angle_rad = radians(rotation_deg)
+
+    def rotate_and_translate(x, y):
+        # rotate point
+        x_rot = x * cos(angle_rad) - y * sin(angle_rad)
+        y_rot = x * sin(angle_rad) + y * cos(angle_rad)
+        # translate to center
+        return (cx + x_rot, cy + y_rot)
+
+    # apply transform
+    points = [rotate_and_translate(*p) for p in (p1, p2, p3)]
+
+    return canvas.create_polygon(points, **kwargs)
+
+# timers used for fade effect
+button_timers = [0.0] *  10
+# list of button draw objects to iterate through when being pressed/fading
+button_draws = []
+
+def draw_inputs(frame_index, fps):
+    # exit if no DTM loaded
+    if not dtm or len(dtm_inputs) == 0:
+        return
+    
+    # get frame inputs from dtm
+    if frame_index <= len(dtm_inputs):
+        frame_inputs = dtm_inputs[floor((frame_index - 1) * 4)]
+    else:
+        frame_inputs = "0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0"
+    
+    # get btn presses and stick values
+    btn = [int(i) for i in frame_inputs.split(":")]
+    mainx: int = btn[14]
+    mainz: int = btn[15]
+    cx:    int = btn[16]
+    cz:    int = btn[17]
+    l:     int = btn[12]
+    r:     int = btn[13]
+    
+    # position the main left stick, note that 0, 0 is top-left and 256, 256 is bottom-right
+    x, y = (28, 51)
+    x += round(10 * (mainx - 128) / 128)
+    y -= round(10 * (mainz - 128) / 128)
+    w, h = (x + 54, y + 54)
+    stick_rect = (x+10, y+10, w-10, h-10)
+    img_gc.coords(drw_left_stick, stick_rect)
+    
+    # position the c stick, same as above
+    x, y = (174, 122)
+    x += round(10 * (cx - 128) / 128)
+    y -= round(10 * (cz - 128) / 128)
+    w, h = (x + 52, y + 52)
+    stick_rect = (x+14, y+14, w-14, h-14)
+    img_gc.coords(drw_c_stick, stick_rect)
+    
+    # main buttons (Start,      A,          B,          X, Y,               Z        DPAD UDLR)
+    btn_colours = ["#b3b3b3", "#00ffff", "#ff0000"] + ["#cccccc"] * 2 + ["#0000c0"] + ["#808080"] * 4
+    end_rgb = ["#333333"] * 6 + ["#cccccc"] * 4
+    fade_duration = 0.6
+    for i, drw_btn in enumerate(button_draws):
+        start_rgb = hex_to_rgb(btn_colours[i])
+        # if button is just pressed, update timer to now
+        if btn[i]: button_timers[i] = time.time()
+        # gets duration since last press for fade progress
+        dif = time.time() - button_timers[i]
+        if dif <= fade_duration:
+            eased_t = ease_out_expo(dif / fade_duration) # looks nicer than linear
+            # calculates the rgb colour between start and end colour then converts it to hex
+            fill = rgb_to_hex(tuple(
+                int(start + (end - start) * eased_t)
+                for start, end in zip(start_rgb, hex_to_rgb(end_rgb[i]))
+            ))
+            img_gc.itemconfig(drw_btn, fill=fill) # update colour
+    
+    # L and R triggers (analog demonstration based on how hard their pressed)
+    # the sample video uses a controller without analog triggers so this effect isn't obvious
+    start_rgb = hex_to_rgb(btn_colours[0])
+    eased_t = 1.0 - ease_out_expo(l / 255) # inverted for fading IN instead of OUT
+    # calculates the rgb colour between start and end colour then converts it to hex
+    fill = rgb_to_hex(tuple(
+        int(start + (end - start) * eased_t)
+        for start, end in zip(start_rgb, hex_to_rgb(end_rgb[0]))
+    ))
+    img_gc.itemconfig(drw_l_btn, fill=fill)
+    
+    # R trigger
+    eased_t = 1.0 - ease_out_expo(r / 255)
+    fill = rgb_to_hex(tuple(
+        int(start + (end - start) * eased_t)
+        for start, end in zip(start_rgb, hex_to_rgb(end_rgb[0]))
+    ))
+    img_gc.itemconfig(drw_r_btn, fill=fill)
+
 # setup a grid layout
 app.grid_columnconfigure(0, weight=0) # for the sidebar
 app.grid_columnconfigure(1, weight=1) # for canvas which is resizable
+app.grid_columnconfigure(2, weight=0) # for gamecube controller, showing inputs
 # app.grid_columnconfigure(2, weight=0) # for canvas which is resizable
 app.grid_rowconfigure(0, weight=1) # for the top row (sidebar + canvas)
 app.grid_rowconfigure(1, weight=0) # for the video player slider
@@ -282,6 +610,24 @@ statusbar.grid(row=2, column=0, columnspan=2, padx=pd, pady=pd, sticky="ew")
 canvas = VideoPlayer(app)
 canvas.grid(row=0, column=1, padx=pd, pady=pd, sticky="nsew")
 
+# gamecube controller for displaying inputs
+pil_img = Image.open("images/gc.png")
+target_width = 300
+aspect_ratio = target_width / pil_img.width
+
+img = ImageTk.PhotoImage(pil_img.resize((target_width, round(pil_img.height * aspect_ratio))))
+
+img_gc = ctk.CTkCanvas(
+    app,
+    width=img.width(),
+    height=img.height(),
+    highlightthickness=0,
+    bg=app.cget("fg_color")[1]
+)
+img_gc.grid(row=0, column=2, sticky="nw")
+img_gc.create_image(0, 0, anchor="nw", image=img)
+init_draws()
+
 # labels
 lbl_dtm = ctk.CTkLabel(statusbar, text=get_dtm_text(), font=ctk.CTkFont(size=14))
 lbl_dtm.grid(row=0, column=0, sticky="w", padx=pd, pady=0)
@@ -302,6 +648,7 @@ btn_unload.grid(row=3, column=0, padx=pd, pady=pd)
 btn_play = ctk.CTkButton(sidebar, text="Play", command=play_video, corner_radius=cr)
 btn_play.grid(row=1, column=0, padx=pd, pady=pd)
 canvas.play_button = btn_play
+canvas.on_frame_update = draw_inputs
 app.bind("<space>", play_video)
 app.bind("<k>", play_video)
 app.bind("<Left>", try_seek)

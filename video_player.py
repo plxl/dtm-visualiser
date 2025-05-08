@@ -6,7 +6,11 @@ import time
 
 class VideoPlayer(ctk.CTkCanvas):
     def __init__(self, app, video_path = ""):
-        super().__init__(app, bg="black")
+        super().__init__(
+            app,
+            highlightthickness=0,
+            bg=app.cget("fg_color")[1]
+        )
         self.on_frame_update = None     # a callback function for when the current frame changes
         self.playing         = False    # whether video is playing or not
         self.play_button     = None     # play / pause button

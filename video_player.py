@@ -45,6 +45,7 @@ class VideoPlayer(ctk.CTkCanvas):
                 sticky="ew"
             )
             slider.set(0)
+            self.on_seek(0)
         
     def _schedule_next(self):
         now = time.perf_counter()

@@ -146,3 +146,4 @@ class VideoPlayer(ctk.CTkCanvas):
         self.coords(self.image_id, x, y)
         
         if self.on_frame_update: self.on_frame_update(self.current_frame_index, self.fps)
+        

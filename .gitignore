@@ -177,6 +177,7 @@ cython_debug/
 *.mp4
 *.avi
 *.dtm
+*.svg
 dtm2text/*.txt
 
 !dtm2text/readme.txt

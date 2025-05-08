@@ -12,7 +12,7 @@ from util import log, err, err_popup
 command = [
     "ffmpeg",
     "-i", "input.avi",
-    "-vf", "scale=-2:480,fps=30",
+    "-vf", "scale=-2:480,fps=_FPS_",
     "-c:v", "libx264",
     "-preset", "slow",
     "-crf", "25",
@@ -33,9 +33,10 @@ def read_output(pipe, is_stderr=False):
     except ValueError as e:
         exit()
 
-def ffmpeg(input: str, output: str) -> bool:
+def ffmpeg(input: str, output: str, fps: str) -> bool:
     command[2] = input
     command[-2] = output
+    command[4] = command[4].replace("_FPS_", fps)
     try:
         proc = subprocess.Popen(
             command,

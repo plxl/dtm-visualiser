@@ -3,7 +3,7 @@ from PIL import Image, ImageTk
 from util import log, err, err_popup
 import customtkinter as ctk
 from customtkinter import filedialog
-from tkinter import messagebox
+from tkinter import messagebox, simpledialog
 from convert_video import ffmpeg
 import sys
 import subprocess
@@ -105,12 +105,31 @@ def set_vid(filename: str, skip_compression: bool = False):
         # ask if the user wants to compress the video usinf FFmpeg
         result = messagebox.askyesnocancel(
             "Compress Video",
-            "Do you want to compress this video to 480p30 using FFmpeg?\n\n" \
+            "Do you want to compress this video to 480p using FFmpeg?\n\n" \
             "NOTE: This requires you to have FFmpeg installed and added to PATH.\n" \
-            "Compressed videos are saved in the ./videos/ directory."
+            "Compressed videos are saved in the ./videos/ directory.\n\n" \
+            "You will also need to know what framerate your game was running at.\n" \
+            "Generally this is 30fps for NTSC and 25fps for PAL."
         )
         if result == True: # pressed Yes
-            log("Attempting to compress video...")
+            fps = "a"
+            message = "What was the game's framerate when recording?\n\n" \
+                "Generally, NTSC games run at 30fps, PAL games run at 25fps."
+            while not fps.isdigit():
+                # i know I could just do askinteger() but then i cant loop to ask again when
+                # the input is invalid as both cancelling and invalid input returns None.
+                # with a string, i can determine cancelled vs invalid input
+                fps = simpledialog.askstring(
+                    "Video FPS",
+                    message
+                )
+                if not fps:
+                    log("Video compression cancelled by user when asked for FPS")
+                    return
+                if not fps.isdigit():
+                    message = "Enter the frames per second as a number for the compressed video."
+            
+            log(f"User inputted video FPS: {fps}")
             
             # validate videos folder
             videos = basedir / "videos"
@@ -141,7 +160,8 @@ def set_vid(filename: str, skip_compression: bool = False):
             # calls ffmpeg with pre-defined command for a small 480p30 mp4 video
             if ffmpeg(
                 input=str(file.absolute()),
-                output=str(output_fn.absolute())
+                output=str(output_fn.absolute()),
+                fps=fps
             ):
                 file = output_fn
         

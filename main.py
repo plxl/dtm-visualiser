@@ -1,6 +1,6 @@
 import cv2
 from PIL import Image, ImageTk
-from util import log, err, err_popup, ease_out_expo, hex_to_rgb, rgb_to_hex
+from util import log, err, err_popup, ease_out_expo, hex_to_rgb, rgb_to_hex, bring_window_to_front
 import customtkinter as ctk
 from customtkinter import filedialog
 from tkinter import messagebox, simpledialog
@@ -659,4 +659,6 @@ app.bind("<l>", try_seek)
 # playback slider
 slider = ctk.CTkSlider(app)
 
+
+bring_window_to_front() # on macOS if pyobjc is installed
 app.mainloop()

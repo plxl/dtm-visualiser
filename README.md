@@ -22,3 +22,5 @@ Tested with Python 3.9.22 on macOS Sequoia 15.4.1. In addition to the aforementi
 ```
 brew install python-tk
 ```
+Optionally, you can install pyobjc to your virtual environment to make sure the window is activated on launch: `pip install pyobjc`.
+Note that this includes hundreds of small modules, hence why I don't include it in requirements.txt.

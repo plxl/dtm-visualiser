@@ -1,6 +1,7 @@
 # basic util functions
 from datetime import datetime
 import tkinter.messagebox as messagebox
+import platform
 
 def log(message: str, type: str = "LOG"):
     timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
@@ -22,3 +23,14 @@ def hex_to_rgb(h):
 
 def rgb_to_hex(rgb):
     return '#{:02x}{:02x}{:02x}'.format(*rgb)
+
+def bring_window_to_front():
+    if platform.system() == "Darwin":
+        try:
+            from AppKit import NSApplication, NSApp
+            NSApplication.sharedApplication()
+            NSApp.activateIgnoringOtherApps_(True)
+
+        except Exception as e:
+            err(f"[macOS] Failed to bring window to front. " \
+                "This can optionally be fixed by running:\n    pip install pyobjc\n")

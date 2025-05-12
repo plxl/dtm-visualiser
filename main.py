@@ -578,10 +578,17 @@ def draw_inputs(frame_index, fps):
 ctk.set_appearance_mode("system")
 ctk.set_default_color_theme("themes/lavender.json")
 
-# initialise ctk window title and size
+# initialise ctk window title
 app = ctk.CTk()
 app.title("DTM Visualiser")
-app.geometry("1100x600")
+# center window on screen
+screen_width = app.winfo_screenwidth()
+screen_height = app.winfo_screenheight()
+window_width = 1100
+window_height = 600
+x = (screen_width // 2) - (window_width // 2)
+y = (screen_height // 2) - (window_height // 2)
+app.geometry(f"{window_width}x{window_height}+{x}+{y}")
 
 # setup a grid layout
 app.grid_columnconfigure(0, weight=0) # for the sidebar
@@ -649,6 +656,8 @@ btn_play = ctk.CTkButton(sidebar, text="Play", command=play_video, corner_radius
 btn_play.grid(row=1, column=0, padx=pd, pady=pd)
 canvas.play_button = btn_play
 canvas.on_frame_update = draw_inputs
+
+# keyboard shortcuts
 app.bind("<space>", play_video)
 app.bind("<k>", play_video)
 app.bind("<Left>", try_seek)
@@ -658,7 +667,6 @@ app.bind("<l>", try_seek)
 
 # playback slider
 slider = ctk.CTkSlider(app)
-
 
 bring_window_to_front() # on macOS if pyobjc is installed
 app.mainloop()

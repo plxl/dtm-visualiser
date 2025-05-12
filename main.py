@@ -194,15 +194,6 @@ def set_vid(filename: str, skip_compression: bool = False):
     vid = str(file.absolute())
     lbl_vid.configure(text=get_vid_text())
 
-# set custom tkinter appearance and theme
-ctk.set_appearance_mode("system")
-ctk.set_default_color_theme("themes/lavender.json")
-
-# initialise ctk window title and size
-app = ctk.CTk()
-app.title("DTM Visualiser")
-app.geometry("1100x600")
-
 # button callbacks
 def load_sample():
     set_dtm("sample/pikmin.dtm")
@@ -582,6 +573,15 @@ def draw_inputs(frame_index, fps):
         for start, end in zip(start_rgb, hex_to_rgb(end_rgb[0]))
     ))
     img_gc.itemconfig(drw_r_btn, fill=fill)
+
+# set custom tkinter appearance and theme
+ctk.set_appearance_mode("system")
+ctk.set_default_color_theme("themes/lavender.json")
+
+# initialise ctk window title and size
+app = ctk.CTk()
+app.title("DTM Visualiser")
+app.geometry("1100x600")
 
 # setup a grid layout
 app.grid_columnconfigure(0, weight=0) # for the sidebar

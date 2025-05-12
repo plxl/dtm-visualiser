@@ -11,6 +11,7 @@ from pathlib import Path
 from video_player import VideoPlayer
 from math import ceil, floor, pi, sin, cos, radians, sqrt
 import time
+from preferences import PreferencesWindow, Preferences
 
 basedir = Path(__file__).resolve().parent
 dtm2text = basedir / "dtm2text" / "dtm2text.py"
@@ -28,6 +29,8 @@ vid = ""
 
 corner_radius = cr = 6
 padding = pd = 4
+
+settings = Preferences()
 
 def get_dtm_text() -> str:
     if len(dtm) > 0:
@@ -94,7 +97,7 @@ def set_dtm(filename: str):
     dtm = str(file.absolute())
     lbl_dtm.configure(text=get_dtm_text())
     
-def set_vid(filename: str, skip_compression: bool = False):
+def set_vid(filename: str, compression: str = "Ask"):
     global vid
     
     # if the video file is an empty string, then unload
@@ -109,9 +112,11 @@ def set_vid(filename: str, skip_compression: bool = False):
         err_popup(f"Video file was not found:\n\n{filename}")
         return
     
-    if not skip_compression:
-        # ask if the user wants to compress the video usinf FFmpeg
-        result = messagebox.askyesnocancel(
+    if not compression == "Never":
+        # init compression as true, assuming compression is set to always
+        result = True
+        # ask if the user wants to compress the video using FFmpeg, if compression is set to ask
+        if compression == "Ask": result = messagebox.askyesnocancel(
             "Compress Video",
             "Do you want to compress this video to 480p using FFmpeg?\n\n" \
             "NOTE: This requires you to have FFmpeg installed and added to PATH.\n" \
@@ -121,6 +126,10 @@ def set_vid(filename: str, skip_compression: bool = False):
         )
         if result == True: # pressed Yes
             fps = "a"
+            # check if the user has a default compression fps set
+            if compression == "Always" and "compress_video_fps" in settings.options.keys():
+                fps = settings.options["compress_video_fps"].value
+            # initial message
             message = "What was the game's framerate when recording?\n\n" \
                 "Generally, NTSC games run at 30fps, PAL games run at 25fps."
             while not fps.isdigit():
@@ -135,6 +144,7 @@ def set_vid(filename: str, skip_compression: bool = False):
                     log("Video compression cancelled by user when asked for FPS")
                     return
                 if not fps.isdigit():
+                    # new message after an incorrect input
                     message = "Enter the frames per second as a number for the compressed video."
             
             log(f"User inputted video FPS: {fps}")
@@ -197,7 +207,7 @@ def set_vid(filename: str, skip_compression: bool = False):
 # button callbacks
 def load_sample():
     set_dtm("sample/pikmin.dtm")
-    set_vid("sample/pikmin.mp4", skip_compression=True)
+    set_vid("sample/pikmin.mp4", compression="Never")
     
 def load_dtm():
     # file dialog for selecting only DTM files
@@ -225,7 +235,7 @@ def load_video():
     )
     if filename:
         log(f"Attempting to load video at: {filename}")
-        set_vid(filename)
+        set_vid(filename, settings.options["compress_video"].value)
     
     # filename will be blank if the user cancels
     else:
@@ -254,6 +264,9 @@ def unload():
     if canvas.playing:
         canvas.pause()
     slider.grid_forget()
+
+def open_pref():
+    PreferencesWindow(app, settings)
 
 # global button draw objects
 drw_left_stick = None
@@ -650,8 +663,13 @@ btn_video = ctk.CTkButton(sidebar_upper, text="Load Video", command=load_video, 
 btn_video.grid(row=2, column=0, padx=pd, pady=pd)
 btn_unload = ctk.CTkButton(sidebar_upper, text="Unload", command=unload, corner_radius=cr)
 btn_unload.grid(row=3, column=0, padx=pd, pady=pd)
-# spacer = ctk.CTkFrame(sidebar_upper, height=20, width=1)
-# spacer.grid(row=4, column=0, padx=pd, pady=pd)
+# spacer
+spacer = ctk.CTkFrame(sidebar_upper, height=20, width=1)
+spacer.grid(row=4, column=0, padx=pd, pady=pd)
+# preferences
+btn_pref = ctk.CTkButton(sidebar_upper, text="Preferences", command=open_pref, corner_radius=cr)
+btn_pref.grid(row=5, column=0, padx=pd, pady=pd)
+# lower pane
 btn_play = ctk.CTkButton(sidebar, text="Play", command=play_video, corner_radius=cr)
 btn_play.grid(row=1, column=0, padx=pd, pady=pd)
 canvas.play_button = btn_play

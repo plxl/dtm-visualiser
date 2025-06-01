@@ -263,6 +263,8 @@ def unload():
     set_vid("")
     if canvas.playing:
         canvas.pause()
+    # clear canvas
+    canvas.delete("all")
     slider.grid_forget()
 
 def open_pref():

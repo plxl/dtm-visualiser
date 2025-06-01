@@ -515,7 +515,7 @@ button_timers = [0.0] *  10
 # list of button draw objects to iterate through when being pressed/fading
 button_draws = []
 
-def draw_inputs(frame_index, fps):
+def draw_inputs(frame_index, draw_blank=False):
     # exit if no DTM loaded
     if not dtm or len(dtm_inputs) == 0:
         return

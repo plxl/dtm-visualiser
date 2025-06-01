@@ -516,15 +516,17 @@ button_timers = [0.0] *  10
 button_draws = []
 
 def draw_inputs(frame_index, draw_blank=False):
+    # default frame inputs
+    frame_inputs = "0:0:0:0:0:0:0:0:0:0:0:0:0:0:128:128:128:128"
     # exit if no DTM loaded
-    if not dtm or len(dtm_inputs) == 0:
-        return
-    
-    # get frame inputs from dtm
-    if frame_index <= len(dtm_inputs):
-        frame_inputs = dtm_inputs[floor((frame_index - 1) * 4)]
-    else:
-        frame_inputs = "0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0"
+    if not draw_blank:
+        if not dtm or len(dtm_inputs) == 0:
+            print("no dtm")
+            return
+        
+        # get frame inputs from dtm
+        if frame_index <= len(dtm_inputs):
+            frame_inputs = dtm_inputs[floor((frame_index - 1) * 4)]
     
     # get btn presses and stick values
     btn = [int(i) for i in frame_inputs.split(":")]

@@ -265,6 +265,8 @@ def unload():
         canvas.pause()
     # clear canvas
     canvas.delete("all")
+    # reset controller
+    draw_inputs(0, True)
     slider.grid_forget()
 
 def open_pref():

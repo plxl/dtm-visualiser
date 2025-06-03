@@ -9,7 +9,7 @@ import sys
 import subprocess
 from pathlib import Path
 from video_player import VideoPlayer
-from math import ceil, floor, pi, sin, cos, radians, sqrt
+from math import floor, pi, sin, cos, radians, sqrt
 import time
 from preferences import PreferencesWindow, Preferences
 

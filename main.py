@@ -12,15 +12,15 @@ from video_player import VideoPlayer
 from math import floor, pi, sin, cos, radians, sqrt
 import time
 from preferences import PreferencesWindow, Preferences
+import shutil
 
 basedir = Path(__file__).resolve().parent
-dtm2text = basedir / "dtm2text" / "dtm2text.py"
+# dtm2text = basedir / "dtm2text" / "dtm2text.py"
 
-log(f"Checking for dtm2text at: {dtm2text}")
-if not dtm2text.exists():
-    err_popup("dtm2text not found. Ensure there is 'dtm2text.py' inside the 'dtm2text' folder.\n\n" \
-        "If it's not there, pull the latest version from the repository:\n" \
-            "https://github.com/plxl/dtm-visualiser")
+log(f"Checking for dtm2text in PATH")
+if not shutil.which("dtm2text"):
+    err_popup("dtm2text not found either in PATH or your VENV. Install requirements with:\n" \
+        "pip install -r requirements.txt")
     exit()
 
 dtm = ""
@@ -60,7 +60,8 @@ def set_dtm(filename: str):
         return
     
     # check if the output dtm file already exists and if so try to remove it
-    output_dir = dtm2text.parent
+    output_dir = basedir / "dtm2text"
+    output_dir.mkdir(exist_ok=True)
     output_fn = output_dir / f"{file.name}_inputs.txt"
     if output_fn.exists() and output_fn.is_file():
         try:
@@ -73,8 +74,7 @@ def set_dtm(filename: str):
     log(f"Converting DTM file to text at: {file.absolute()}")
     subprocess.run(
         [
-            sys.executable,
-            str(dtm2text.absolute()),
+            "dtm2text",
             str(file.absolute()),
             "--no-header",
             "-o", str(output_dir.absolute())

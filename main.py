@@ -13,7 +13,6 @@ from preferences import PreferencesWindow, Preferences
 import shutil
 
 basedir = Path(__file__).resolve().parent
-# dtm2text = basedir / "dtm2text" / "dtm2text.py"
 
 log(f"Checking for dtm2text in PATH")
 if not shutil.which("dtm2text"):

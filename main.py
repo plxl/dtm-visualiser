@@ -1,11 +1,9 @@
-import cv2
 from PIL import Image, ImageTk
 from util import *
 import customtkinter as ctk
 from customtkinter import filedialog
 from tkinter import messagebox, simpledialog
 from convert_video import ffmpeg
-import sys
 import subprocess
 from pathlib import Path
 from video_player import VideoPlayer
